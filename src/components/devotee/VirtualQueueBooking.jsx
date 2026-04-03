@@ -7,6 +7,14 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, Heart, Shield, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Add this function to generate unique QR code for each booking
+const generateUniqueQRData = (userId, templeId, date, timeSlot, tokenNumber) => {
+  // Add timestamp and random string to make each QR unique
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 8);
+  return `${userId}|${templeId}|${date}|${timeSlot}|${tokenNumber}|${timestamp}|${randomString}`;
+};
+
 const VirtualQueueBooking = () => {
   const { templeId } = useParams();
   const { user } = useAuth();
@@ -44,6 +52,15 @@ const VirtualQueueBooking = () => {
       // Generate unique token
       const tokenNumber = await generateTokenNumber(templeId, selectedDate, Date.now());
       
+      // Generate unique QR data
+      const qrCodeData = generateUniqueQRData(
+        user.uid,
+        templeId,
+        selectedDate,
+        selectedSlot,
+        tokenNumber
+      );
+
       const bookingData = {
         userId: user.uid,
         userEmail: user.email,
@@ -54,10 +71,9 @@ const VirtualQueueBooking = () => {
         tokenNumber: tokenNumber,
         priority: priority,
         estimatedWaitTime: estimatedWait,
-        qrCodeData: `${user.uid}|${templeId}|${selectedDate}|${selectedSlot}|${tokenNumber}|${Date.now()}`
+        qrCodeData: qrCodeData
       };
 
-      // Use bookingsService.createBooking instead of createBooking
       await bookingsService.createBooking(bookingData);
       toast.success('Booking confirmed!');
       navigate('/my-bookings');

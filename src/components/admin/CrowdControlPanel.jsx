@@ -5,6 +5,91 @@ import { TEMPLES } from '../../utils/constants';
 import toast from 'react-hot-toast';
 import { Users, Car, Building2, TrendingUp, Save } from 'lucide-react';
 
+// New Slot Management Component
+const SlotManagement = ({ selectedTemple }) => {
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [newTiming, setNewTiming] = useState('');
+
+  const timeSlots = [
+    '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM',
+    '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM',
+    '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'
+  ];
+
+  const adjustSlotTiming = async () => {
+    if (!selectedSlot || !newTiming) {
+      toast.error('Please select slot and new timing');
+      return;
+    }
+
+    try {
+      // Update slot timing in Firestore
+      await setDoc(doc(db, 'slotAdjustments', `${selectedTemple}_${selectedSlot}`), {
+        temple: selectedTemple,
+        originalSlot: selectedSlot,
+        newTiming: newTiming,
+        adjustedBy: 'admin',
+        adjustedAt: Timestamp.now(),
+        isActive: true
+      });
+      
+      toast.success(`Slot timing adjusted from ${selectedSlot} to ${newTiming}`);
+      setSelectedSlot('');
+      setNewTiming('');
+    } catch (error) {
+      console.error('Error adjusting slot:', error);
+      toast.error('Failed to adjust slot');
+    }
+  };
+
+  return (
+    <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <h4 className="font-semibold text-gray-900 mb-3">Adjust Slot Timings</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Select Congested Slot</label>
+          <select
+            value={selectedSlot}
+            onChange={(e) => setSelectedSlot(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">Select Congested Slot</option>
+            {timeSlots.map(slot => (
+              <option key={slot} value={slot}>{slot}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">New Timing</label>
+          <select
+            value={newTiming}
+            onChange={(e) => setNewTiming(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            disabled={!selectedSlot}
+          >
+            <option value="">Select New Timing</option>
+            {timeSlots
+              .filter(slot => slot !== selectedSlot)
+              .map(slot => (
+                <option key={slot} value={slot}>{slot}</option>
+              ))
+            }
+          </select>
+        </div>
+      </div>
+
+      <button
+        onClick={adjustSlotTiming}
+        disabled={!selectedSlot || !newTiming}
+        className="mt-4 w-full bg-orange-600 text-white py-2.5 rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-300 disabled:cursor-not-allowed font-medium"
+      >
+        Adjust Slot Timing
+      </button>
+    </div>
+  );
+};
+
 const CrowdControlPanel = () => {
   const [selectedTemple, setSelectedTemple] = useState(TEMPLES[0]?.id || '');
   const [crowdLevels, setCrowdLevels] = useState({
@@ -165,6 +250,9 @@ const CrowdControlPanel = () => {
             </>
           )}
         </button>
+
+        {/* Added Slot Management Section */}
+        <SlotManagement selectedTemple={selectedTemple} />
       </div>
 
       {/* Info Card */}

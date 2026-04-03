@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Map, Bell, LogOut } from 'lucide-react';
+import { Users, Calendar, Map, QrCode, Settings, LayoutDashboard, LogOut } from 'lucide-react';
 import CrowdControlPanel from './CrowdControlPanel';
 import BookingManagement from './BookingManagement';
 import RoutingControl from './RoutingControl';
+import QRScanner from './QRScanner';
+import AdvancedCrowdControls from './AdvancedCrowdControls';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('crowd');
+  const [selectedTemple, setSelectedTemple] = useState('somnath');
 
   const tabs = [
     { id: 'crowd', name: 'Crowd Control', icon: Users, color: 'bg-blue-500' },
-    { id: 'bookings', name: 'Booking Management', icon: Calendar, color: 'bg-green-500' },
-    { id: 'routing', name: 'Routing Control', icon: Map, color: 'bg-purple-500' }
+    { id: 'scanner', name: 'QR Scanner', icon: QrCode, color: 'bg-green-500' },
+    { id: 'bookings', name: 'Booking Management', icon: Calendar, color: 'bg-yellow-500' },
+    { id: 'routing', name: 'Routing Control', icon: Map, color: 'bg-purple-500' },
+    { id: 'advanced', name: 'Advanced Controls', icon: Settings, color: 'bg-red-500' }
   ];
 
   const handleLogout = () => {
@@ -21,14 +26,6 @@ const AdminDashboard = () => {
     toast.success('Logged out successfully');
     navigate('/admin-login');
   };
-
-  // Check if admin is logged in
-  useEffect(() => {
-    const isAdmin = localStorage.getItem('isAdmin');
-    if (!isAdmin) {
-      navigate('/admin-login');
-    }
-  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -42,7 +39,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-xs text-gray-500">MindGuard AI Management System</p>
+                <p className="text-xs text-gray-500">Dev Darshan - Crowd Management System</p>
               </div>
             </div>
             <button
@@ -59,13 +56,13 @@ const AdminDashboard = () => {
       {/* Tabs */}
       <div className="border-b border-gray-200 bg-white sticky top-[73px] z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+          <nav className="flex space-x-8 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap
                   ${activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -83,8 +80,10 @@ const AdminDashboard = () => {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'crowd' && <CrowdControlPanel />}
+        {activeTab === 'scanner' && <QRScanner onScanComplete={() => {}} />}
         {activeTab === 'bookings' && <BookingManagement />}
         {activeTab === 'routing' && <RoutingControl />}
+        {activeTab === 'advanced' && <AdvancedCrowdControls selectedTemple={selectedTemple} />}
       </div>
     </div>
   );
