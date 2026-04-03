@@ -33,10 +33,20 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        // Check if user is admin
+        // Check if user is admin - ONLY specific admin email
         try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.email));
-          setIsAdmin(adminDoc.exists());
+          // ONLY these emails are admins
+          const adminEmails = ['admin@devdarshan.com', 'admin@123'];
+          const isAdminUser = adminEmails.includes(user.email);
+          
+          // Also check Firestore for additional security
+          let isFirestoreAdmin = false;
+          if (isAdminUser) {
+            const adminDoc = await getDoc(doc(db, 'admins', user.email));
+            isFirestoreAdmin = adminDoc.exists();
+          }
+          
+          setIsAdmin(isAdminUser && isFirestoreAdmin);
         } catch (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
@@ -57,7 +67,8 @@ export const AuthProvider = ({ children }) => {
         name: name,
         email: email,
         createdAt: new Date().toISOString(),
-        role: 'user'
+        role: 'user',
+        isAdmin: false
       });
       toast.success('Account created successfully!');
       return result;
@@ -72,7 +83,7 @@ export const AuthProvider = ({ children }) => {
           errorMessage = 'Invalid email format';
           break;
         case 'auth/weak-password':
-          errorMessage = 'Password is too weak';
+          errorMessage = 'Password is too weak (minimum 6 characters)';
           break;
         default:
           errorMessage = error.message;
@@ -85,7 +96,14 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      toast.success('Welcome back!');
+      
+      // Check if this is an admin account
+      const adminEmails = ['admin@devdarshan.com', 'admin@123'];
+      const isAdminUser = adminEmails.includes(email);
+      
+      if (!isAdminUser) {
+        toast.success('Welcome back!');
+      }
       return result;
     } catch (error) {
       console.error('Login error:', error);
@@ -98,7 +116,7 @@ export const AuthProvider = ({ children }) => {
           errorMessage = 'Incorrect password';
           break;
         case 'auth/invalid-email':
-          errorMessage = 'Invalid email format';
+          errorMessage = 'Invalid email format. Use example@domain.com';
           break;
         case 'auth/too-many-requests':
           errorMessage = 'Too many failed attempts. Please try again later';
@@ -115,12 +133,19 @@ export const AuthProvider = ({ children }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      
+      // Check if this Google account is admin
+      const adminEmails = ['admin@devdarshan.com', 'admin@123'];
+      const isAdminUser = adminEmails.includes(result.user.email);
+      
       await setDoc(doc(db, 'users', result.user.uid), {
         name: result.user.displayName,
         email: result.user.email,
         createdAt: new Date().toISOString(),
-        role: 'user'
+        role: isAdminUser ? 'admin' : 'user',
+        isAdmin: isAdminUser
       }, { merge: true });
+      
       toast.success('Logged in with Google!');
       return result;
     } catch (error) {

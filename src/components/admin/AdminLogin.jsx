@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Mail, Lock, LogIn } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../services/firebase';
 import toast from 'react-hot-toast';
 
 const AdminLogin = () => {
@@ -14,18 +16,33 @@ const AdminLogin = () => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate admin login delay
-    setTimeout(() => {
-      // Hardcoded admin credentials for demo
-      if (email === 'admin@123' && password === 'admin123') {
-        localStorage.setItem('isAdmin', 'true');
-        toast.success('Admin login successful!');
-        navigate('/admin');
+    try {
+      // Only allow specific admin emails
+      const adminEmails = ['admin@devdarshan.com', 'admin@123'];
+      
+      if (!adminEmails.includes(email)) {
+        toast.error('This is not an admin account. Please use user login.');
+        setLoading(false);
+        return;
+      }
+      
+      // Attempt admin login
+      await signInWithEmailAndPassword(auth, email, password);
+      localStorage.setItem('isAdmin', 'true');
+      toast.success('Admin login successful!');
+      navigate('/admin');
+    } catch (error) {
+      console.error('Admin login error:', error);
+      if (error.code === 'auth/user-not-found') {
+        toast.error('Admin account not found. Please run the setup first.');
+      } else if (error.code === 'auth/wrong-password') {
+        toast.error('Incorrect password');
       } else {
         toast.error('Invalid admin credentials');
       }
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -41,7 +58,7 @@ const AdminLogin = () => {
             <Shield className="w-12 h-12 text-primary-600" />
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900">Admin Portal</h2>
-          <p className="mt-2 text-sm text-gray-600">MindGuard AI - Crowd Management System</p>
+          <p className="mt-2 text-sm text-gray-600">Dev Darshan - Crowd Management System</p>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -56,7 +73,7 @@ const AdminLogin = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="admin@123"
+                  placeholder="admin@devdarshan.com"
                 />
               </div>
             </div>
@@ -103,6 +120,14 @@ const AdminLogin = () => {
           >
             ← Back to User Login
           </button>
+        </div>
+        
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p className="text-xs text-yellow-800 text-center">
+            ⚠️ Admin Access Only<br/>
+            Email: admin@devdarshan.com<br/>
+            Password: admin123
+          </p>
         </div>
       </motion.div>
     </div>

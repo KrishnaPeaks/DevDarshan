@@ -1,5 +1,5 @@
 import React from 'react';
-import { app } from './services/firebase'; // This will work now
+import { app } from './services/firebase';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
@@ -18,7 +18,12 @@ import Setup from './pages/Setup';
 
 function App() {
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AuthProvider>
         <Toaster 
           position="top-right"
@@ -44,6 +49,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/setup" element={<Setup />} />
+          
           <Route path="/temple-selection" element={
             <ProtectedRoute>
               <TempleSelection />

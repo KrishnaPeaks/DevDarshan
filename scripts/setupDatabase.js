@@ -4,14 +4,14 @@
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, doc, setDoc, Timestamp } = require('firebase/firestore');
 
-// Your Firebase config
+// Your Firebase config - REPLACE with your actual config from Firebase Console
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDO0MFu90dtP6ZDMA5IH8mr4UaMjE5Ckrc",  // Replace with YOUR actual API key
+  authDomain: "devdarshan-d55b1.firebaseapp.com",     // Replace with YOUR auth domain
+  projectId: "devdarshan-d55b1",                      // Replace with YOUR project ID
+  storageBucket: "devdarshan-d55b1.appspot.com",      // Replace with YOUR storage bucket
+  messagingSenderId: "123456789012",                  // Replace with YOUR sender ID
+  appId: "1:123456789012:web:abcdef123456"            // Replace with YOUR app ID
 };
 
 const app = initializeApp(firebaseConfig);

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { bookingsService } from '../../services/firestore';
+import { db } from '../../services/firebase';
+import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, CheckCircle, XCircle, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatDate, getStatusBadgeColor } from '../../utils/helpers';
+import { Calendar, Clock, CheckCircle, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MyBookings = () => {
@@ -15,24 +15,68 @@ const MyBookings = () => {
 
   useEffect(() => {
     if (!user) return;
-    
-    setLoading(true);
-    // Subscribe to real-time bookings
-    const unsubscribe = bookingsService.subscribeToUserBookings(user.uid, (userBookings) => {
-      setBookings(userBookings);
-      setLoading(false);
-    });
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    fetchBookings();
   }, [user]);
+
+  const fetchBookings = async () => {
+    try {
+      // Simple query without orderBy first
+      const q = query(
+        collection(db, 'bookings'),
+        where('userId', '==', user.uid)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      let bookingsData = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        bookedAt: doc.data().bookedAt?.toDate?.() || new Date()
+      }));
+      
+      // Sort manually on client side
+      bookingsData = bookingsData.sort((a, b) => {
+        const dateA = a.bookedAt || new Date(0);
+        const dateB = b.bookedAt || new Date(0);
+        return dateB - dateA;
+      });
+      
+      setBookings(bookingsData);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status) => {
+    switch(status) {
+      case 'upcoming': return 'bg-yellow-100 text-yellow-800';
+      case 'active': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const handleCancelBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       try {
-        await bookingsService.updateBookingStatus(bookingId, 'cancelled');
+        await updateDoc(doc(db, 'bookings', bookingId), {
+          status: 'cancelled',
+          updatedAt: new Date().toISOString()
+        });
         toast.success('Booking cancelled successfully');
+        fetchBookings();
       } catch (error) {
         toast.error('Failed to cancel booking');
       }
@@ -88,7 +132,7 @@ const MyBookings = () => {
                         <p className="text-sm text-gray-500">Token: {booking.tokenNumber}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadgeColor(booking.status)}`}>
-                        {booking.status.toUpperCase()}
+                        {booking.status?.toUpperCase() || 'UPCOMING'}
                       </span>
                     </div>
 
