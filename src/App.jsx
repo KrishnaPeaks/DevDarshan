@@ -1,8 +1,5 @@
 import React from 'react';
-
-import {getDatabase} from 'firebase/database';
-import {app} from './services/firebase';
-const database = getDatabase(app);
+import { app } from './services/firebase'; // This will work now
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
@@ -17,6 +14,7 @@ import MyBookings from './components/devotee/MyBookings';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 import Navbar from './components/common/Navbar';
+import Setup from './pages/Setup';
 
 function App() {
   return (
@@ -45,7 +43,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin-login" element={<AdminLogin />} />
-          
+          <Route path="/setup" element={<Setup />} />
           <Route path="/temple-selection" element={
             <ProtectedRoute>
               <TempleSelection />

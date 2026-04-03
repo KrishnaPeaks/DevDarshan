@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { createBooking } from '../../services/firestore';
+import { bookingsService } from '../../services/firestore';
 import { TEMPLES, TIME_SLOTS, calculateWaitTime, generateTokenNumber } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, Heart, Shield, AlertCircle } from 'lucide-react';
@@ -22,7 +22,6 @@ const VirtualQueueBooking = () => {
   useEffect(() => {
     const selectedTemple = TEMPLES.find(t => t.id === templeId);
     setTemple(selectedTemple);
-    // Simulate getting current crowd level
     setCrowdLevel(Math.floor(Math.random() * 100));
   }, [templeId]);
 
@@ -43,7 +42,7 @@ const VirtualQueueBooking = () => {
     setLoading(true);
     try {
       // Generate unique token
-      const tokenNumber = generateTokenNumber(templeId, selectedDate, Date.now());
+      const tokenNumber = await generateTokenNumber(templeId, selectedDate, Date.now());
       
       const bookingData = {
         userId: user.uid,
@@ -58,7 +57,8 @@ const VirtualQueueBooking = () => {
         qrCodeData: `${user.uid}|${templeId}|${selectedDate}|${selectedSlot}|${tokenNumber}|${Date.now()}`
       };
 
-      await createBooking(bookingData);
+      // Use bookingsService.createBooking instead of createBooking
+      await bookingsService.createBooking(bookingData);
       toast.success('Booking confirmed!');
       navigate('/my-bookings');
     } catch (error) {

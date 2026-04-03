@@ -6,8 +6,7 @@ export const TEMPLES = [
     description: 'First among the 12 Jyotirlingas, a sacred pilgrimage site',
     image: 'https://images.unsplash.com/photo-1633534725943-b32ffc6c7c9f?w=400&h=300&fit=crop',
     timings: '6:00 AM - 9:00 PM',
-    coordinates: { lat: 20.8880, lng: 70.4012 },
-    history: 'The Somnath temple is known as the "Shrine Eternal", having been destroyed and rebuilt several times.'
+    coordinates: { lat: 20.8880, lng: 70.4012 }
   },
   {
     id: 'dwarka',
@@ -16,8 +15,7 @@ export const TEMPLES = [
     description: 'Ancient temple dedicated to Lord Krishna',
     image: 'https://images.unsplash.com/photo-1633534725943-b32ffc6c7c9f?w=400&h=300&fit=crop',
     timings: '6:30 AM - 9:00 PM',
-    coordinates: { lat: 22.2442, lng: 68.9685 },
-    history: 'Dwarka is one of the four sacred Char Dham pilgrimage sites.'
+    coordinates: { lat: 22.2442, lng: 68.9685 }
   },
   {
     id: 'ambaji',
@@ -26,8 +24,7 @@ export const TEMPLES = [
     description: 'Famous Shakti Peetha temple',
     image: 'https://images.unsplash.com/photo-1633534725943-b32ffc6c7c9f?w=400&h=300&fit=crop',
     timings: '6:00 AM - 8:00 PM',
-    coordinates: { lat: 24.3324, lng: 72.8620 },
-    history: 'One of the 51 Shakti Peethas, dedicated to Goddess Ambaji.'
+    coordinates: { lat: 24.3324, lng: 72.8620 }
   },
   {
     id: 'pavagadh',
@@ -36,8 +33,7 @@ export const TEMPLES = [
     description: 'Kali Mata Temple on a hilltop',
     image: 'https://images.unsplash.com/photo-1633534725943-b32ffc6c7c9f?w=400&h=300&fit=crop',
     timings: '5:00 AM - 7:00 PM',
-    coordinates: { lat: 22.4681, lng: 73.5405 },
-    history: 'A UNESCO World Heritage site with ancient fortifications.'
+    coordinates: { lat: 22.4681, lng: 73.5405 }
   }
 ];
 
@@ -49,30 +45,16 @@ export const TIME_SLOTS = [
   '6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM', '8:00 PM', '8:30 PM'
 ];
 
-export const CROWD_THRESHOLDS = {
-  LOW: { min: 0, max: 33, color: 'green', text: 'Low Crowd', icon: '😊' },
-  MEDIUM: { min: 34, max: 66, color: 'yellow', text: 'Medium Crowd', icon: '😐' },
-  HIGH: { min: 67, max: 100, color: 'red', text: 'High Crowd', icon: '😰' }
-};
-
-export const BOOKING_STATUS = {
-  UPCOMING: 'upcoming',
-  ACTIVE: 'active',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+export const calculateWaitTime = (crowdLevel, priority = false) => {
+  let baseWait = 30;
+  if (crowdLevel <= 33) baseWait = 15;
+  else if (crowdLevel <= 66) baseWait = 45;
+  else baseWait = 90;
+  return priority ? Math.floor(baseWait / 2) : baseWait;
 };
 
 export const generateTokenNumber = (templeId, date, count) => {
   const prefix = templeId.substring(0, 3).toUpperCase();
   const dateStr = date.replace(/-/g, '');
   return `${prefix}${dateStr}${String(count + 1).padStart(4, '0')}`;
-};
-
-export const calculateWaitTime = (crowdLevel, isPriority = false) => {
-  let baseWait = 30;
-  if (crowdLevel <= 33) baseWait = 15;
-  else if (crowdLevel <= 66) baseWait = 45;
-  else baseWait = 90;
-  
-  return isPriority ? Math.floor(baseWait / 2) : baseWait;
 };

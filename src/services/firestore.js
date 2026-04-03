@@ -315,3 +315,17 @@ export const batchService = {
     return snapshot.size;
   }
 };
+
+// ============ NAMED EXPORTS FOR BACKWARD COMPATIBILITY ============
+export const createBooking = (bookingData) => bookingsService.createBooking(bookingData);
+export const getUserBookings = (userId) => {
+  return new Promise((resolve) => {
+    const unsubscribe = bookingsService.subscribeToUserBookings(userId, (bookings) => {
+      resolve(bookings);
+      unsubscribe();
+    });
+  });
+};
+export const updateBookingStatus = (bookingId, status) => bookingsService.updateBookingStatus(bookingId, status);
+export const subscribeToCrowdData = (templeId, callback) => crowdService.subscribeToCrowdData(templeId, callback);
+export const subscribeToRoutingMessages = (templeId, callback) => routingService.subscribeToRoutingMessages(templeId, callback);

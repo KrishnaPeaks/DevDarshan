@@ -1,4 +1,3 @@
-// src/utils/helpers.js
 import { Timestamp } from 'firebase/firestore';
 
 // Format date for display
@@ -42,6 +41,22 @@ export const getCrowdStatus = (level) => {
   return { text: 'High', color: 'red', message: 'Heavy crowd, consider alternative timing' };
 };
 
+// Get status badge color for bookings - ADD THIS FUNCTION
+export const getStatusBadgeColor = (status) => {
+  switch(status) {
+    case 'upcoming':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'active':
+      return 'bg-blue-100 text-blue-800';
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
 // Generate unique token number
 export const generateTokenNumber = async (templeId, date, bookingCount) => {
   const prefix = templeId.substring(0, 3).toUpperCase();
@@ -72,4 +87,42 @@ export const getAvailableTimeSlots = () => {
     }
   }
   return slots;
+};
+
+// Get crowd color based on percentage
+export const getCrowdColor = (percentage) => {
+  if (percentage <= 33) return 'bg-green-500';
+  if (percentage <= 66) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
+// Get crowd level text
+export const getCrowdLevel = (percentage) => {
+  if (percentage <= 33) return 'Low';
+  if (percentage <= 66) return 'Medium';
+  return 'High';
+};
+
+// Validate email
+export const validateEmail = (email) => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+};
+
+// Validate password
+export const validatePassword = (password) => {
+  return password && password.length >= 6;
+};
+
+// Get user initials
+export const getInitials = (name) => {
+  if (!name) return 'U';
+  return name.charAt(0).toUpperCase();
+};
+
+// Truncate text
+export const truncateText = (text, maxLength = 50) => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
 };

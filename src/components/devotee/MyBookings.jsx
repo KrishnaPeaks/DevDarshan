@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserBookings, updateBookingStatus } from '../../services/firestore';
+import { bookingsService } from '../../services/firestore';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, CheckCircle, XCircle, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
@@ -14,29 +14,25 @@ const MyBookings = () => {
   const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
-    fetchBookings();
-  }, [user]);
-
-  const fetchBookings = async () => {
     if (!user) return;
     
-    try {
-      const userBookings = await getUserBookings(user.uid);
+    setLoading(true);
+    // Subscribe to real-time bookings
+    const unsubscribe = bookingsService.subscribeToUserBookings(user.uid, (userBookings) => {
       setBookings(userBookings);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-      toast.error('Failed to load bookings');
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
 
   const handleCancelBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       try {
-        await updateBookingStatus(bookingId, 'cancelled');
+        await bookingsService.updateBookingStatus(bookingId, 'cancelled');
         toast.success('Booking cancelled successfully');
-        fetchBookings();
       } catch (error) {
         toast.error('Failed to cancel booking');
       }
