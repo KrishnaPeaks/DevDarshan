@@ -1,4 +1,8 @@
 import React from 'react';
+
+import {getDatabase} from 'firebase/database';
+import {app} from './services/firebase';
+const database = getDatabase(app);
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';

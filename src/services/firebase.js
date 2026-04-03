@@ -2,14 +2,17 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Replace with your Firebase config from Firebase Console
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "YOUR_AUTH_DOMAIN",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "YOUR_STORAGE_BUCKET",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "YOUR_APP_ID"
+  apiKey: "AIzaSyDO0MFu90dtP6ZDMA5IH8mr4UaMjE5Ckrc",
+  authDomain: "devdarshan-d55b1.firebaseapp.com",
+  projectId: "devdarshan-d55b1",
+  storageBucket: "devdarshan-d55b1.firebasestorage.app",
+  messagingSenderId: "199116636241",
+  appId: "1:199116636241:web:8e941ae7ae1cd96daa7870",
+  measurementId: "G-HC37PNNQGG",
+  databaseURL: "https://devdarshan-d55b1-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);

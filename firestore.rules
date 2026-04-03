@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Bookings collection
+    match /bookings/{booking} {
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data != null);
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data != null);
+      allow delete: if false;
+    }
+    
+    // Crowd data - anyone can read, only admins can write
+    match /crowdData/{temple} {
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data != null;
+    }
+    
+    // Routing messages - anyone can read, only admins can write
+    match /routingMessages/{message} {
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data != null;
+    }
+    
+    // Admins collection - only admins can read
+    match /admins/{email} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Notifications
+    match /notifications/{notification} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
