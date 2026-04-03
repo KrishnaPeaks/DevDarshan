@@ -1,5 +1,4 @@
 import React from 'react';
-import { app } from './services/firebase';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
@@ -15,6 +14,7 @@ import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 import Navbar from './components/common/Navbar';
 import Setup from './pages/Setup';
+import WalkInKiosk from './components/admin/WalkInKiosk';
 
 function App() {
   return (
@@ -36,7 +36,7 @@ function App() {
             success: {
               duration: 3000,
               iconTheme: {
-                primary: '#4f46e5',
+                primary: '#ea580c',
                 secondary: '#fff',
               },
             },
@@ -44,12 +44,14 @@ function App() {
         />
         <Navbar />
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/setup" element={<Setup />} />
           
+          {/* Devotee Routes (Protected) */}
           <Route path="/temple-selection" element={
             <ProtectedRoute>
               <TempleSelection />
@@ -74,12 +76,21 @@ function App() {
             </ProtectedRoute>
           } />
           
+          {/* Admin Routes (Protected + Admin Only) */}
           <Route path="/admin" element={
             <ProtectedRoute adminOnly={true}>
               <AdminDashboard />
             </ProtectedRoute>
           } />
           
+          {/* Walk-in Kiosk for Temple Staff (Admin only) */}
+          <Route path="/admin/walkin-kiosk" element={
+            <ProtectedRoute adminOnly={true}>
+              <WalkInKiosk />
+            </ProtectedRoute>
+          } />
+          
+          {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

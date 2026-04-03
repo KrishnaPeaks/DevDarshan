@@ -9,21 +9,15 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading Ambaji Temple Portal...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (!user) return <Navigate to="/login" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
   return children;
 };
 

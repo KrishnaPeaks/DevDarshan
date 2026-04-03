@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Menu, X, User, LogOut, Calendar, LayoutDashboard, Home, Shield } from 'lucide-react';
+import { Menu, X, User, LogOut, Calendar, LayoutDashboard, Home, Shield, Users, QrCode } from 'lucide-react';
 
 const Navbar = () => {
   const { user, isAdmin, logout } = useAuth();
@@ -23,7 +23,8 @@ const Navbar = () => {
 
   const adminLinks = [
     { path: '/', label: 'Home', icon: Home },
-    { path: '/admin', label: 'Admin Panel', icon: Shield }
+    { path: '/admin', label: 'Admin Panel', icon: Shield },
+    { path: '/admin/walkin-kiosk', label: '🚪 Walk-in Kiosk', icon: Users }
   ];
 
   const navLinks = user ? (isAdmin ? adminLinks : userLinks) : [{ path: '/', label: 'Home', icon: Home }];

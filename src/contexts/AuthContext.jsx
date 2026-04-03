@@ -1,29 +1,17 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged 
-} from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
-// Create the context
 const AuthContext = createContext();
 
-// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
-// Provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,24 +21,10 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        // Check if user is admin - ONLY specific admin email
         try {
-          // ONLY these emails are admins
-          const adminEmails = ['admin@devdarshan.com', 'admin@123'];
-          const isAdminUser = adminEmails.includes(user.email);
-          
-          // Also check Firestore for additional security
-          let isFirestoreAdmin = false;
-          if (isAdminUser) {
-            const adminDoc = await getDoc(doc(db, 'admins', user.email));
-            isFirestoreAdmin = adminDoc.exists();
-          }
-          
-          setIsAdmin(isAdminUser && isFirestoreAdmin);
-        } catch (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
-        }
+          const adminDoc = await getDoc(doc(db, 'admins', user.email));
+          setIsAdmin(adminDoc.exists());
+        } catch { setIsAdmin(false); }
       } else {
         setUser(null);
         setIsAdmin(false);
@@ -63,32 +37,11 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (email, password, name) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, 'users', result.user.uid), {
-        name: name,
-        email: email,
-        createdAt: new Date().toISOString(),
-        role: 'user',
-        isAdmin: false
-      });
-      toast.success('Account created successfully!');
+      await setDoc(doc(db, 'users', result.user.uid), { name, email, createdAt: new Date().toISOString(), role: 'user' });
+      toast.success('Account created! Welcome to Ambaji Temple');
       return result;
     } catch (error) {
-      console.error('Signup error:', error);
-      let errorMessage = 'Failed to create account';
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          errorMessage = 'An account already exists with this email';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email format';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'Password is too weak (minimum 6 characters)';
-          break;
-        default:
-          errorMessage = error.message;
-      }
-      toast.error(errorMessage);
+      toast.error(error.message);
       throw error;
     }
   };
@@ -96,35 +49,10 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Check if this is an admin account
-      const adminEmails = ['admin@devdarshan.com', 'admin@123'];
-      const isAdminUser = adminEmails.includes(email);
-      
-      if (!isAdminUser) {
-        toast.success('Welcome back!');
-      }
+      toast.success('Welcome to Ambaji Temple!');
       return result;
     } catch (error) {
-      console.error('Login error:', error);
-      let errorMessage = 'Failed to sign in';
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'No account found with this email';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Incorrect password';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email format. Use example@domain.com';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later';
-          break;
-        default:
-          errorMessage = error.message;
-      }
-      toast.error(errorMessage);
+      toast.error(error.message);
       throw error;
     }
   };
@@ -133,24 +61,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      
-      // Check if this Google account is admin
-      const adminEmails = ['admin@devdarshan.com', 'admin@123'];
-      const isAdminUser = adminEmails.includes(result.user.email);
-      
-      await setDoc(doc(db, 'users', result.user.uid), {
-        name: result.user.displayName,
-        email: result.user.email,
-        createdAt: new Date().toISOString(),
-        role: isAdminUser ? 'admin' : 'user',
-        isAdmin: isAdminUser
-      }, { merge: true });
-      
+      await setDoc(doc(db, 'users', result.user.uid), { name: result.user.displayName, email: result.user.email, createdAt: new Date().toISOString(), role: 'user' }, { merge: true });
       toast.success('Logged in with Google!');
       return result;
     } catch (error) {
-      console.error('Google sign in error:', error);
-      toast.error('Failed to sign in with Google');
+      toast.error('Google sign in failed');
       throw error;
     }
   };
@@ -158,26 +73,15 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await signOut(auth);
-      toast.success('Logged out successfully');
+      toast.success('Logged out');
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('Failed to log out');
+      toast.error('Logout failed');
     }
   };
 
-  const value = {
-    user,
-    isAdmin,
-    loading,
-    signUp,
-    signIn,
-    signInWithGoogle,
-    logout
-  };
-
   return (
-    <AuthContext.Provider value={value}>
-      {children}
+    <AuthContext.Provider value={{ user, isAdmin, loading, signUp, signIn, signInWithGoogle, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

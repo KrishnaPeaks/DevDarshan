@@ -1,6 +1,6 @@
-// src/hooks/useCrowdData.js
 import { useState, useEffect } from 'react';
-import { crowdService, routingService } from '../services/firestore';
+import { db } from '../services/firebase';
+import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 
 export const useCrowdData = (templeId) => {
   const [crowdData, setCrowdData] = useState(null);
@@ -12,32 +12,48 @@ export const useCrowdData = (templeId) => {
     if (!templeId) return;
 
     setLoading(true);
-
-    // Subscribe to real-time crowd data
-    const unsubscribeCrowd = crowdService.subscribeToCrowdData(templeId, (data) => {
-      setCrowdData(data);
-      setLoading(false);
+    
+    const unsubscribeCrowd = onSnapshot(doc(db, 'crowdData', templeId), (doc) => {
+      if (doc.exists()) {
+        setCrowdData({ id: doc.id, ...doc.data() });
+        setLoading(false);
+      }
     });
 
-    // Subscribe to routing messages
-    const unsubscribeMessages = routingService.subscribeToRoutingMessages(templeId, (messages) => {
-      setRoutingMessages(messages);
-    });
-
-    // Load historical data
-    const loadHistory = async () => {
-      const history = await crowdService.getHistoricalData(templeId, 2);
-      setHistoricalData(history);
+    // Fetch historical data without orderBy to avoid index
+    const fetchHistoricalData = async () => {
+      try {
+        const q = query(
+          collection(db, 'crowdHistory'),
+          where('temple', '==', templeId)
+        );
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => doc.data());
+        // Sort manually
+        const sorted = data.sort((a, b) => {
+          const dateA = a.timestamp?.toDate?.() || new Date(0);
+          const dateB = b.timestamp?.toDate?.() || new Date(0);
+          return dateB - dateA;
+        });
+        setHistoricalData(sorted.slice(0, 20));
+      } catch (error) {
+        console.error('Error fetching historical data:', error);
+      }
     };
-    loadHistory();
+    
+    fetchHistoricalData();
 
-    // Refresh history every 5 minutes
-    const interval = setInterval(loadHistory, 300000);
+    const unsubscribeMessages = onSnapshot(
+      query(collection(db, 'routingMessages'), where('temple', '==', templeId), where('isActive', '==', true)),
+      (snapshot) => {
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setRoutingMessages(messages);
+      }
+    );
 
     return () => {
       unsubscribeCrowd();
       unsubscribeMessages();
-      clearInterval(interval);
     };
   }, [templeId]);
 

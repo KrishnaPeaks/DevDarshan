@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../services/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
-import QRCodeDisplay from '../common/QRCodeDisplay';
+import { bookingsService } from '../../services/firestore';
+import QRCode from 'qrcode.react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, CheckCircle, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, QrCode, ChevronDown, ChevronUp, Download, Copy, Ticket } from 'lucide-react';
+import { formatDate, getStatusBadgeColor } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const MyBookings = () => {
@@ -15,72 +15,53 @@ const MyBookings = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetchBookings();
-  }, [user]);
-
-  const fetchBookings = async () => {
-    try {
-      // Simple query without orderBy first
-      const q = query(
-        collection(db, 'bookings'),
-        where('userId', '==', user.uid)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      let bookingsData = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        bookedAt: doc.data().bookedAt?.toDate?.() || new Date()
-      }));
-      
-      // Sort manually on client side
-      bookingsData = bookingsData.sort((a, b) => {
-        const dateA = a.bookedAt || new Date(0);
-        const dateB = b.bookedAt || new Date(0);
-        return dateB - dateA;
-      });
-      
-      setBookings(bookingsData);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-      toast.error('Failed to load bookings');
-    } finally {
+    
+    setLoading(true);
+    const unsubscribe = bookingsService.subscribeToUserBookings(user.uid, (userBookings) => {
+      setBookings(userBookings);
       setLoading(false);
-    }
-  };
-
-  const getStatusBadgeColor = (status) => {
-    switch(status) {
-      case 'upcoming': return 'bg-yellow-100 text-yellow-800';
-      case 'active': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
     });
-  };
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
 
   const handleCancelBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       try {
-        await updateDoc(doc(db, 'bookings', bookingId), {
-          status: 'cancelled',
-          updatedAt: new Date().toISOString()
-        });
+        await bookingsService.updateBookingStatus(bookingId, 'cancelled');
         toast.success('Booking cancelled successfully');
-        fetchBookings();
       } catch (error) {
         toast.error('Failed to cancel booking');
       }
     }
+  };
+
+  const downloadQRCode = (tokenNumber) => {
+    const canvas = document.getElementById(`qr-canvas-${tokenNumber}`);
+    if (canvas) {
+      const pngUrl = canvas
+        .toDataURL('image/png')
+        .replace('image/png', 'image/octet-stream');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = `dev-darshan-${tokenNumber}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      toast.success('QR Code downloaded!');
+    }
+  };
+
+  const copyQRData = (qrData) => {
+    navigator.clipboard.writeText(qrData);
+    toast.success('QR data copied to clipboard!');
+  };
+
+  const copyTokenNumber = (tokenNumber) => {
+    navigator.clipboard.writeText(tokenNumber);
+    toast.success('Token number copied! You can use this in admin scanner.');
   };
 
   if (loading) {
@@ -129,7 +110,16 @@ const MyBookings = () => {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-xl font-semibold text-gray-900">{booking.templeName}</h3>
-                        <p className="text-sm text-gray-500">Token: {booking.tokenNumber}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Ticket className="w-4 h-4 text-gray-400" />
+                          <p className="text-sm font-mono text-gray-600">Token: {booking.tokenNumber}</p>
+                          <button
+                            onClick={() => copyTokenNumber(booking.tokenNumber)}
+                            className="text-xs text-primary-600 hover:text-primary-700"
+                          >
+                            <Copy className="w-3 h-3 inline" /> Copy
+                          </button>
+                        </div>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadgeColor(booking.status)}`}>
                         {booking.status?.toUpperCase() || 'UPCOMING'}
@@ -193,12 +183,54 @@ const MyBookings = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-6 pt-6 border-t border-gray-200"
                   >
-                    <div className="flex justify-center">
-                      <QRCodeDisplay value={booking.qrCodeData} size={150} />
+                    <div className="flex flex-col items-center">
+                      {/* QR Code */}
+                      <div className="bg-white p-4 rounded-xl shadow-md">
+                        <QRCode
+                          id={`qr-canvas-${booking.tokenNumber}`}
+                          value={booking.qrCodeData}
+                          size={200}
+                          level="H"
+                          includeMargin={true}
+                          bgColor="#ffffff"
+                          fgColor="#000000"
+                        />
+                      </div>
+                      
+                      {/* Token Number Display */}
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg text-center">
+                        <p className="text-xs text-blue-600 mb-1">Entry Token Number</p>
+                        <p className="text-lg font-mono font-bold text-blue-800">{booking.tokenNumber}</p>
+                      </div>
+                      
+                      {/* QR Data Display */}
+                      <div className="mt-2 p-3 bg-gray-100 rounded-lg max-w-full overflow-x-auto">
+                        <p className="text-xs font-mono text-gray-600 break-all">
+                          <strong>Encoded Data:</strong> {booking.qrCodeData}
+                        </p>
+                      </div>
+                      
+                      <div className="flex gap-3 mt-4 flex-wrap justify-center">
+                        <button
+                          onClick={() => downloadQRCode(booking.tokenNumber)}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download QR Code
+                        </button>
+                        <button
+                          onClick={() => copyQRData(booking.qrCodeData)}
+                          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                        >
+                          <Copy className="w-4 h-4" />
+                          Copy QR Data
+                        </button>
+                      </div>
+                      
+                      <p className="text-center text-xs text-gray-500 mt-3">
+                        Scan this QR code at the temple entrance for entry
+                      </p>
                     </div>
-                    <p className="text-center text-xs text-gray-500 mt-3">
-                      Scan this QR code at the temple entrance
-                    </p>
                   </motion.div>
                 )}
               </div>

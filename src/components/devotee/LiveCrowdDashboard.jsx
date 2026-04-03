@@ -1,266 +1,127 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Line, Doughnut } from 'react-chartjs-2';
-import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  Title, 
-  Tooltip, 
-  Legend, 
-  ArcElement,
-  Filler
-} from 'chart.js';
-import { useCrowdData } from '../../hooks/useCrowdData';
-import { TEMPLES } from '../../utils/constants';
-import { 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  MapPin, 
-  TrendingUp,
-  Users,
-  Car,
-  Building2,
-  RefreshCw,
-  ArrowRight
-} from 'lucide-react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler } from 'chart.js';
+import { db } from '../../services/firebase';
+import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { TEMPLE } from '../../utils/constants';
+import { Activity, AlertTriangle, CheckCircle, Clock, MapPin, TrendingUp, Users, Car, Building2, Brain } from 'lucide-react';
+import { getPrediction } from '../../data/ambajiHistoricalData';
 
-ChartJS.register(
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  Title, 
-  Tooltip, 
-  Legend, 
-  ArcElement,
-  Filler
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler);
 
 const LiveCrowdDashboard = () => {
-  const { templeId } = useParams();
   const navigate = useNavigate();
-  const { crowdData, historicalData, routingMessages, loading } = useCrowdData(templeId);
-  const [temple, setTemple] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [liveHistoricalData, setLiveHistoricalData] = useState([]);
+  const [crowdData, setCrowdData] = useState(null);
+  const [historicalData, setHistoricalData] = useState([]);
+  const [routingMessages, setRoutingMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [aiPrediction, setAiPrediction] = useState(null);
 
-  // EXISTING useEffect - Load temple data
   useEffect(() => {
-    const selectedTemple = TEMPLES.find(t => t.id === templeId);
-    if (selectedTemple) {
-      setTemple(selectedTemple);
-    }
-  }, [templeId]);
-
-  // NEW useEffect - Update chart in real-time with simulated crowd changes
-  useEffect(() => {
-    if (crowdData) {
-      // Initialize live historical data with current crowd data
-      setLiveHistoricalData(prev => {
-        if (prev.length === 0) {
-          return [{ ...crowdData, timestamp: new Date() }];
-        }
-        return prev;
+    // Subscribe to crowd data for Ambaji Temple
+    const unsubscribeCrowd = onSnapshot(doc(db, 'crowdData', 'ambaji'), (docSnap) => {
+      if (docSnap.exists()) { 
+        setCrowdData(docSnap.data()); 
+        setLoading(false); 
+      }
+    });
+    
+    // Subscribe to routing messages COLLECTION (not a single document)
+    const messagesQuery = query(
+      collection(db, 'routingMessages'),
+      where('temple', '==', 'ambaji'),
+      where('isActive', '==', true)
+    );
+    
+    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRoutingMessages(messages);
+    });
+    
+    // Generate AI prediction
+    const now = new Date();
+    const hour = now.getHours();
+    const timeSlot = `${hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+    const prediction = getPrediction(now.toISOString().split('T')[0], timeSlot);
+    setAiPrediction(prediction);
+    
+    // Simulate historical data for chart
+    const interval = setInterval(() => {
+      setHistoricalData(prev => {
+        const newData = [...prev, { entranceLevel: crowdData?.entranceLevel || 35, timestamp: new Date() }];
+        return newData.slice(-20);
       });
-
-      // Update historical data every 30 seconds to simulate real-time crowd changes
-      const interval = setInterval(() => {
-        setLiveHistoricalData(prev => {
-          // Simulate random crowd fluctuations (-10% to +10%)
-          const entranceChange = (Math.random() - 0.5) * 10;
-          const templeAreaChange = (Math.random() - 0.5) * 10;
-          const parkingChange = (Math.random() - 0.5) * 10;
-          
-          // Calculate new levels (keep between 0 and 100)
-          let newEntranceLevel = crowdData.entranceLevel + entranceChange;
-          let newTempleAreaLevel = crowdData.templeAreaLevel + templeAreaChange;
-          let newParkingLevel = crowdData.parkingLevel + parkingChange;
-          
-          newEntranceLevel = Math.min(100, Math.max(0, newEntranceLevel));
-          newTempleAreaLevel = Math.min(100, Math.max(0, newTempleAreaLevel));
-          newParkingLevel = Math.min(100, Math.max(0, newParkingLevel));
-          
-          const newDataPoint = {
-            entranceLevel: newEntranceLevel,
-            templeAreaLevel: newTempleAreaLevel,
-            parkingLevel: newParkingLevel,
-            timestamp: new Date()
-          };
-          
-          const updatedData = [...prev, newDataPoint];
-          // Keep last 20 data points
-          return updatedData.slice(-20);
-        });
-      }, 30000); // Update every 30 seconds
-      
-      return () => clearInterval(interval);
-    }
-  }, [crowdData]);
-
-  // Use live historical data if available, otherwise use props historical data
-  const displayHistoricalData = liveHistoricalData.length > 0 ? liveHistoricalData : historicalData;
-
-  const getCrowdColor = (level) => {
-    if (level <= 33) return 'text-green-600 bg-green-100';
-    if (level <= 66) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
-  const getCrowdBgColor = (level) => {
-    if (level <= 33) return 'bg-gradient-to-r from-green-400 to-green-500';
-    if (level <= 66) return 'bg-gradient-to-r from-yellow-400 to-yellow-500';
-    return 'bg-gradient-to-r from-red-400 to-red-500';
-  };
+    }, 30000);
+    
+    return () => { 
+      unsubscribeCrowd(); 
+      unsubscribeMessages(); 
+      clearInterval(interval); 
+    };
+  }, []);
 
   const getCrowdStatus = (level) => {
-    if (level <= 33) return { text: 'Smooth Flow', icon: CheckCircle, color: 'text-green-600' };
-    if (level <= 66) return { text: 'Moderate Crowd', icon: AlertTriangle, color: 'text-yellow-600' };
-    return { text: 'Heavy Congestion', icon: AlertTriangle, color: 'text-red-600' };
+    if (level <= 33) return { text: 'Smooth Flow', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' };
+    if (level <= 66) return { text: 'Moderate Crowd', icon: AlertTriangle, color: 'text-yellow-600', bg: 'bg-yellow-100' };
+    return { text: 'Heavy Congestion', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100' };
   };
 
-  const crowdZones = [
-    { 
-      name: 'Entrance', 
-      key: 'entranceLevel',
-      level: crowdData?.entranceLevel || 0, 
-      icon: Users,
-      description: 'Queue at main gate',
-      waitTime: Math.floor((crowdData?.entranceLevel || 0) * 0.6)
-    },
-    { 
-      name: 'Main Temple', 
-      key: 'templeAreaLevel',
-      level: crowdData?.templeAreaLevel || 0, 
-      icon: Building2,
-      description: 'Sanctum area',
-      waitTime: Math.floor((crowdData?.templeAreaLevel || 0) * 0.8)
-    },
-    { 
-      name: 'Parking', 
-      key: 'parkingLevel',
-      level: crowdData?.parkingLevel || 0, 
-      icon: Car,
-      description: 'Vehicle parking',
-      waitTime: Math.floor((crowdData?.parkingLevel || 0) * 0.3)
-    }
+  const zones = [
+    { name: 'Entrance', level: crowdData?.entranceLevel || 0, icon: Users, waitTime: Math.floor((crowdData?.entranceLevel || 0) * 0.6) },
+    { name: 'Temple Area', level: crowdData?.templeAreaLevel || 0, icon: Building2, waitTime: Math.floor((crowdData?.templeAreaLevel || 0) * 0.8) },
+    { name: 'Parking', level: crowdData?.parkingLevel || 0, icon: Car, waitTime: Math.floor((crowdData?.parkingLevel || 0) * 0.3) }
   ];
 
   const chartData = {
-    labels: displayHistoricalData.map(d => {
-      const date = new Date(d.timestamp);
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }),
-    datasets: [
-      {
-        label: 'Entrance Crowd',
-        data: displayHistoricalData.map(d => d.entranceLevel),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: 'rgb(59, 130, 246)'
-      },
-      {
-        label: 'Temple Area',
-        data: displayHistoricalData.map(d => d.templeAreaLevel),
-        borderColor: 'rgb(234, 179, 8)',
-        backgroundColor: 'rgba(234, 179, 8, 0.1)',
-        tension: 0.4,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: 'rgb(234, 179, 8)'
-      }
-    ]
+    labels: historicalData.map(d => new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+    datasets: [{ 
+      label: 'Crowd Level', 
+      data: historicalData.map(d => d.entranceLevel), 
+      borderColor: 'rgb(234, 88, 12)', 
+      backgroundColor: 'rgba(234, 88, 12, 0.1)', 
+      tension: 0.4, 
+      fill: true 
+    }]
   };
 
-  const doughnutData = {
-    labels: ['Entrance', 'Temple Area', 'Parking'],
-    datasets: [{
-      data: [crowdData?.entranceLevel || 0, crowdData?.templeAreaLevel || 0, crowdData?.parkingLevel || 0],
-      backgroundColor: ['#3B82F6', '#EAB308', '#EF4444'],
-      borderWidth: 0,
-      hoverOffset: 10
-    }]
+  const doughnutData = { 
+    labels: ['Entrance', 'Temple Area', 'Parking'], 
+    datasets: [{ 
+      data: [crowdData?.entranceLevel || 0, crowdData?.templeAreaLevel || 0, crowdData?.parkingLevel || 0], 
+      backgroundColor: ['#ea580c', '#f97316', '#dc2626'] 
+    }] 
   };
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { 
-        position: 'top',
-        labels: { usePointStyle: true, boxWidth: 10 }
-      },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: function(context) {
-            return `${context.dataset.label}: ${Math.round(context.raw)}%`;
-          }
-        }
-      }
+      legend: { position: 'top' },
+      tooltip: { mode: 'index', intersect: false }
     },
     scales: {
-      y: { 
-        beginAtZero: true, 
-        max: 100, 
-        title: { display: true, text: 'Crowd Level (%)', font: { weight: 'bold' } },
-        grid: { color: 'rgba(0,0,0,0.05)' }
-      },
-      x: { 
-        grid: { display: false },
-        title: { display: true, text: 'Time', font: { weight: 'bold' } }
-      }
-    },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
-    },
-    animation: {
-      duration: 750,
-      easing: 'easeInOutQuart'
+      y: { beginAtZero: true, max: 100, title: { display: true, text: 'Crowd Level (%)' } }
     }
   };
 
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    cutout: '60%',
     plugins: {
-      legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            return `${context.label}: ${Math.round(context.raw)}%`;
-          }
-        }
-      }
-    },
-    cutout: '60%'
-  };
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    // Force refresh data
-    setTimeout(() => setRefreshing(false), 1000);
+      legend: { position: 'bottom' }
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-          <p className="text-gray-600">Loading crowd data...</p>
+          <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading Ambaji Temple Data...</p>
+          <p className="text-sm text-orange-600 mt-2">🕉️ Jai Ambaji Mata</p>
         </div>
       </div>
     );
@@ -268,203 +129,124 @@ const LiveCrowdDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{temple?.name}</h1>
-              <div className="flex items-center gap-2 text-gray-600">
-                <MapPin className="w-4 h-4" />
-                <span>{temple?.location}</span>
-                <span className="mx-2">•</span>
-                <Clock className="w-4 h-4" />
-                <span>Live Updates Every 30 Seconds</span>
-              </div>
-            </div>
-            <button
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">🕉️ {TEMPLE.name}</h1>
+          <div className="flex items-center gap-2 text-gray-600">
+            <MapPin className="w-4 h-4" />
+            <span>{TEMPLE.location}</span>
+            <span className="mx-2">•</span>
+            <Clock className="w-4 h-4" />
+            <span>Live Updates Every 30 Seconds</span>
           </div>
         </div>
 
-        {/* Routing Messages */}
-        <AnimatePresence>
-          {routingMessages && routingMessages.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg shadow-sm overflow-hidden"
-            >
-              <div className="p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <div className="inline-flex p-2 bg-blue-100 rounded-lg">
-                      <Activity className="h-5 w-5 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <p className="text-sm font-medium text-blue-800">Smart Routing Suggestion</p>
-                    <p className="text-sm text-blue-700 mt-1">{routingMessages[0]?.message}</p>
-                  </div>
-                </div>
+        {/* AI Prediction Card */}
+        {aiPrediction && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-white">
+            <div className="flex items-center gap-3 mb-3">
+              <Brain className="w-6 h-6" />
+              <span className="text-sm font-mono bg-white/20 px-2 py-1 rounded">AI POWERED PREDICTION</span>
+            </div>
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <p className="text-lg">
+                  {aiPrediction.isFestival ? '🎉 Festival Time! Extreme Crowds Expected' : 
+                   aiPrediction.crowdPercentage > 70 ? '🔴 Very Crowded' : 
+                   aiPrediction.crowdPercentage > 40 ? '🟡 Moderate Crowd' : '🟢 Best Time to Visit'}
+                </p>
+                <p className="text-purple-200 mt-1">Expected Wait: {aiPrediction.waitTime} minutes</p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <div className="text-right">
+                <div className="text-4xl font-bold">{aiPrediction.crowdPercentage}%</div>
+                <div className="text-sm opacity-75">Predicted Crowd</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Rest of your component remains the same */}
-        {/* Crowd Cards Grid */}
+        {/* Crowd Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {crowdZones.map((zone, index) => {
+          {zones.map((zone, idx) => {
             const status = getCrowdStatus(zone.level);
             const StatusIcon = status.icon;
             return (
-              <motion.div
-                key={zone.key}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5 }}
-                className="group relative bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
-              >
-                <div className={`absolute top-0 left-0 w-full h-1 ${getCrowdBgColor(zone.level)}`}></div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="inline-flex p-2 bg-gray-100 rounded-xl group-hover:scale-110 transition-transform duration-300">
-                        <zone.icon className="w-6 h-6 text-gray-700" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900">{zone.name}</h3>
-                    </div>
-                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${getCrowdColor(zone.level)}`}>
-                      <StatusIcon className="w-3 h-3" />
-                      <span>{status.text}</span>
-                    </div>
+              <motion.div key={idx} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-100 rounded-xl"><zone.icon className="w-6 h-6 text-orange-600" /></div>
+                    <h3 className="text-lg font-semibold">{zone.name}</h3>
                   </div>
-                  
-                  <div className="mb-4">
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="text-3xl font-bold text-gray-900">{Math.round(zone.level)}%</span>
-                      <span className="text-sm text-gray-500">Capacity</span>
-                    </div>
-                    <div className="relative pt-1">
-                      <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-200">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${zone.level}%` }}
-                          transition={{ duration: 1, delay: index * 0.1 }}
-                          className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${getCrowdBgColor(zone.level)}`}
-                        />
-                      </div>
-                    </div>
+                  <span className={`px-2 py-1 rounded-full text-sm ${status.bg} ${status.color}`}>
+                    <StatusIcon className="w-3 h-3 inline mr-1" /> {status.text}
+                  </span>
+                </div>
+                <div className="mb-4">
+                  <div className="text-3xl font-bold">{Math.round(zone.level)}%</div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div className="bg-orange-500 h-2 rounded-full transition-all duration-300" style={{ width: `${zone.level}%` }}></div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">{zone.description}</p>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Est. Wait Time:</span>
-                      <span className="font-semibold text-gray-900">{zone.waitTime} min</span>
-                    </div>
-                  </div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Est. Wait Time:</span>
+                  <span className="font-semibold">{zone.waitTime} min</span>
                 </div>
               </motion.div>
             );
           })}
         </div>
 
-        {/* Charts Section */}
+        {/* Charts */}
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl shadow-lg p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Crowd Trends</h3>
-                <p className="text-sm text-gray-500 mt-1">Live updates every 30 seconds</p>
-              </div>
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Crowd Trends (Last Hour)</h3>
               <TrendingUp className="w-5 h-5 text-gray-400" />
             </div>
             <div className="h-80">
               <Line data={chartData} options={chartOptions} />
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-2xl shadow-lg p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Current Distribution</h3>
-                <p className="text-sm text-gray-500 mt-1">Real-time capacity breakdown</p>
-              </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Current Distribution</h3>
               <Activity className="w-5 h-5 text-gray-400" />
             </div>
             <div className="h-80">
               <Doughnut data={doughnutData} options={doughnutOptions} />
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Recommendations Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gradient-to-r from-primary-50 to-purple-50 rounded-2xl p-6 mb-8"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Recommendations</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="flex items-start gap-3">
-              <div className="inline-flex p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Best Time to Visit</p>
-                <p className="text-sm text-gray-600">Early morning (6-8 AM) or late evening (7-9 PM)</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="inline-flex p-2 bg-blue-100 rounded-lg">
-                <Clock className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Expected Wait Time</p>
-                <p className="text-sm text-gray-600">Approximately 30-45 minutes for darshan</p>
-              </div>
+        {/* Routing Messages */}
+        {routingMessages.length > 0 && (
+          <div className="mb-8 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <p className="text-sm text-blue-700">{routingMessages[0]?.message}</p>
             </div>
           </div>
-        </motion.div>
+        )}
+
+        {/* Festival Info */}
+        <div className="mb-8 bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-6 border border-orange-200">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-2xl">🎉</span>
+            <h3 className="text-lg font-semibold text-orange-800">Upcoming Festival: Bhadarvi Poonam Mahamela</h3>
+          </div>
+          <p className="text-orange-700">September 12-18, 2025 • 170+ Year Tradition • Expected 50+ Lakh Devotees</p>
+          <p className="text-sm text-orange-600 mt-2">Book your darshan in advance to avoid long queues!</p>
+        </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(`/book-darshan/${templeId}`)}
-            className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            Book Darshan Now
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/my-bookings')}
-            className="bg-white text-gray-700 px-8 py-3 rounded-xl font-semibold border-2 border-gray-300 hover:border-primary-500 hover:text-primary-600 transition-all duration-300"
-          >
-            View My Bookings
-          </motion.button>
+        <div className="flex gap-4 justify-center flex-wrap">
+          <button onClick={() => navigate('/book-darshan/ambaji')} className="bg-orange-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-orange-700 transition transform hover:scale-105">
+            📅 Book Darshan
+          </button>
+          <button onClick={() => navigate('/my-bookings')} className="bg-gray-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-gray-700 transition">
+            📋 My Bookings
+          </button>
         </div>
       </div>
     </div>
