@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Calendar, Map, QrCode, Settings, LayoutDashboard, LogOut, Bell, TrendingUp, Shield, Sparkles, Activity } from 'lucide-react';
+import { Users, Calendar, Map, QrCode, Settings, LayoutDashboard, LogOut, Bell, TrendingUp, Shield, Sparkles, Activity, Flame } from 'lucide-react';
 import AutomatedCrowdView from './AutomatedCrowdView';
 import BookingManagement from './BookingManagement';
 import RoutingControl from './RoutingControl';
 import QRScanner from './QRScanner';
 import AdvancedCrowdControls from './AdvancedCrowdControls';
 import AutomationMonitor from './AutomationMonitor';
+import RealtimeCrowdHeatmap from '../common/RealtimeCrowdHeatmap';
 import AIAutomationService from '../../services/aiAutomationService';
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
@@ -15,7 +16,7 @@ import toast from 'react-hot-toast';
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('crowd');
-  const [selectedTemple, setSelectedTemple] = useState('somnath');
+  const [selectedTemple, setSelectedTemple] = useState('ambaji');
   const [aiStats, setAiStats] = useState({
     active: true,
     predictionsToday: 0,
@@ -30,6 +31,7 @@ const AdminDashboard = () => {
     { id: 'scanner', name: 'QR Scanner', icon: QrCode, color: 'bg-blue-500' },
     { id: 'bookings', name: 'Booking Management', icon: Calendar, color: 'bg-yellow-500' },
     { id: 'routing', name: 'Routing Control', icon: Map, color: 'bg-purple-500' },
+    { id: 'heatmap', name: '🔥 Heatmap', icon: Flame, color: 'bg-red-500' },
     { id: 'advanced', name: 'Advanced Controls', icon: Settings, color: 'bg-red-500' },
     { id: 'automation', name: '🤖 Automation Monitor', icon: Activity, color: 'bg-teal-500' },
     { id: 'ai-analytics', name: 'AI Analytics', icon: Sparkles, color: 'bg-indigo-500' }
@@ -127,17 +129,16 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-white shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-2 rounded-lg">
+              <div className="bg-gradient-to-r from-orange-600 to-red-600 p-2 rounded-lg">
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-xs text-gray-500">🤖 AI-Powered Fully Automated System</p>
+                <p className="text-xs text-gray-500">🤖 AI-Powered Fully Automated System | Ambaji Temple</p>
               </div>
             </div>
             <button
@@ -151,7 +152,6 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* AI Stats Cards - Showing Automation is Working */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-gradient-to-r from-green-500 to-teal-500 rounded-xl p-4 text-white shadow-lg">
@@ -211,7 +211,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* AI Quick Actions - Optional triggers */}
         <div className="mt-4 flex gap-3">
           <button
             onClick={runManualPrediction}
@@ -232,7 +231,6 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-gray-200 bg-white sticky top-[73px] z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8 overflow-x-auto">
@@ -243,7 +241,7 @@ const AdminDashboard = () => {
                 className={`
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap
                   ${activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
+                    ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }
                 `}
@@ -256,17 +254,16 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'crowd' && <AutomatedCrowdView />}
         {activeTab === 'scanner' && <QRScanner onScanComplete={() => {}} />}
         {activeTab === 'bookings' && <BookingManagement />}
         {activeTab === 'routing' && <RoutingControl />}
+        {activeTab === 'heatmap' && <RealtimeCrowdHeatmap />}
         {activeTab === 'advanced' && <AdvancedCrowdControls selectedTemple={selectedTemple} />}
         {activeTab === 'automation' && <AutomationMonitor />}
         {activeTab === 'ai-analytics' && (
           <div className="space-y-6">
-            {/* AI Analytics Dashboard */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-indigo-600" />

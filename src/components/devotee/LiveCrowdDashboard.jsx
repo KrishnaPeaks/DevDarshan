@@ -12,10 +12,12 @@ import { TEMPLE } from '../../utils/constants';
 import { 
   Activity, AlertTriangle, CheckCircle, Clock, MapPin, 
   TrendingUp, Users, Car, Building2, RefreshCw, Sparkles, 
-  Brain, Calendar, Bell, ArrowRight, Star 
+  Brain, Calendar, Bell, ArrowRight, Star, Flame
 } from 'lucide-react';
 import DashboardService from '../../services/dashboardService';
 import AIAutomationService from '../../services/aiAutomationService';
+import RealtimeCrowdHeatmap from '../common/RealtimeCrowdHeatmap';
+import toast from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler);
 
@@ -27,6 +29,7 @@ const LiveCrowdDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // Real-time crowd listener
   useEffect(() => {
@@ -45,10 +48,18 @@ const LiveCrowdDashboard = () => {
   // Historical data for chart
   useEffect(() => {
     const fetchHistorical = async () => {
-      const q = query(collection(db, 'crowdHistory'), where('temple', '==', 'ambaji'), orderBy('timestamp', 'desc'), limit(20));
-      const snapshot = await getDocs(q);
-      const history = snapshot.docs.map(doc => ({ ...doc.data(), timestamp: doc.data().timestamp?.toDate() || new Date() }));
-      setHistoricalData(history.reverse());
+      try {
+        const q = query(collection(db, 'crowdHistory'), where('temple', '==', 'ambaji'));
+        const snapshot = await getDocs(q);
+        const history = snapshot.docs.map(doc => ({ 
+          ...doc.data(), 
+          timestamp: doc.data().timestamp?.toDate() || new Date() 
+        }));
+        const sorted = history.sort((a, b) => a.timestamp - b.timestamp);
+        setHistoricalData(sorted.slice(-20));
+      } catch (error) {
+        console.error('Error fetching historical data:', error);
+      }
     };
     fetchHistorical();
     const interval = setInterval(fetchHistorical, 120000);
@@ -95,6 +106,25 @@ const LiveCrowdDashboard = () => {
     }] 
   };
 
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      y: { beginAtZero: true, max: 100, title: { display: true, text: 'Crowd Level (%)' } }
+    }
+  };
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '60%',
+    plugins: { legend: { position: 'bottom' } }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -114,7 +144,7 @@ const LiveCrowdDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         
         {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
+        <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">🕉️ {TEMPLE.name}</h1>
             <div className="flex items-center gap-2 text-gray-600 text-sm">
@@ -123,11 +153,32 @@ const LiveCrowdDashboard = () => {
               <Clock className="w-4 h-4" /> Real-time updates every 2 minutes
             </div>
           </div>
-          <button onClick={refreshDashboardData} disabled={refreshing} className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition"
+            >
+              <Flame className="w-4 h-4" />
+              {showHeatmap ? 'Hide Heatmap' : 'Show Heatmap'}
+            </button>
+            <button onClick={refreshDashboardData} disabled={refreshing} className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {/* Heatmap Section */}
+        {showHeatmap && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }} 
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-8"
+          >
+            <RealtimeCrowdHeatmap />
+          </motion.div>
+        )}
 
         {/* Main Crowd Status Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`rounded-2xl p-6 mb-6 ${status.bg}`}>
@@ -171,7 +222,7 @@ const LiveCrowdDashboard = () => {
                   <p className="text-gray-800 text-sm">{rec.text}</p>
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-xs text-gray-500">⏱️ {rec.waitTime}</span>
-                    <button className="text-primary-600 text-sm font-medium flex items-center gap-1">
+                    <button className="text-orange-600 text-sm font-medium flex items-center gap-1">
                       {rec.action} <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
@@ -242,11 +293,11 @@ const LiveCrowdDashboard = () => {
         <div className="grid lg:grid-cols-2 gap-8 mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-5">
             <h3 className="font-semibold mb-3">📊 Crowd Trend (Last 2 Hours)</h3>
-            <div className="h-64"><Line data={chartData} options={{ responsive: true, maintainAspectRatio: false }} /></div>
+            <div className="h-64"><Line data={chartData} options={chartOptions} /></div>
           </div>
           <div className="bg-white rounded-2xl shadow-lg p-5">
             <h3 className="font-semibold mb-3">🥧 Current Distribution</h3>
-            <div className="h-64"><Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false, cutout: '60%' }} /></div>
+            <div className="h-64"><Doughnut data={doughnutData} options={doughnutOptions} /></div>
           </div>
         </div>
 
